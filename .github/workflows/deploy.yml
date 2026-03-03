@@ -43,26 +43,21 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "Finding existing Spring Boot process..."
-            PID=$(pgrep -f 'java -jar')
+            set -e
 
-            if [ -n "$PID" ]; then
-              echo "Stopping process $PID"
-              kill -9 $PID
-            else
-              echo "No existing process found"
-            fi
-
-            echo "Switching to app directory"
+            echo "Going to app directory..."
             cd ~/app
 
-            echo "Selecting latest JAR"
-            JAR_FILE=$(ls -t *.jar | head -n 1)
+            echo "Stopping old application if running..."
+            pkill -f 'java -jar' || true
 
-            echo "Starting $JAR_FILE"
-            nohup java -jar "$JAR_FILE" > app.log 2>&1 &
+            echo "Finding latest jar..."
+            JAR=$(ls -t *.jar | head -n 1)
+
+            echo "Starting $JAR ..."
+            nohup java -jar "$JAR" > app.log 2>&1 < /dev/null &
 
             sleep 5
 
-            echo "Running processes:"
-            ps -ef | grep java
+            echo "Application status:"
+            pgrep -f 'java -jar' || echo "App not running"
