@@ -43,23 +43,26 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "Stopping existing application..."
-            pkill -f eureka-server || true
+            echo "Finding existing Spring Boot process..."
+            PID=$(pgrep -f 'java -jar')
 
-            echo "Moving to app directory..."
+            if [ -n "$PID" ]; then
+              echo "Stopping process $PID"
+              kill -9 $PID
+            else
+              echo "No existing process found"
+            fi
+
+            echo "Switching to app directory"
             cd ~/app
 
-            echo "Listing available JAR files:"
-            ls -l
-
-            echo "Selecting latest JAR..."
+            echo "Selecting latest JAR"
             JAR_FILE=$(ls -t *.jar | head -n 1)
 
-            echo "Starting $JAR_FILE ..."
+            echo "Starting $JAR_FILE"
             nohup java -jar "$JAR_FILE" > app.log 2>&1 &
 
-            echo "Waiting for app to start..."
-            sleep 8
+            sleep 5
 
-            echo "Checking running processes:"
+            echo "Running processes:"
             ps -ef | grep java
