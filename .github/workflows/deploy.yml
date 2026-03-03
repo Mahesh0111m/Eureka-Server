@@ -10,19 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Java 21
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Build JAR
+      # 3️⃣ Build the JAR
+      - name: Build with Maven
         run: mvn clean package
 
-      - name: Copy JAR to EC2
+      # 4️⃣ Copy JAR to EC2
+      - name: Upload JAR to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -31,6 +35,7 @@ jobs:
           source: "target/*.jar"
           target: "~/app"
 
+      # 5️⃣ Restart Application Safely
       - name: Restart Application
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -38,6 +43,23 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            pkill -f jar || true
+            echo "Stopping existing application..."
+            pkill -f eureka-server || true
+
+            echo "Moving to app directory..."
             cd ~/app
-            nohup java -jar *.jar > app.log 2>&1 &
+
+            echo "Listing available JAR files:"
+            ls -l
+
+            echo "Selecting latest JAR..."
+            JAR_FILE=$(ls -t *.jar | head -n 1)
+
+            echo "Starting $JAR_FILE ..."
+            nohup java -jar "$JAR_FILE" > app.log 2>&1 &
+
+            echo "Waiting for app to start..."
+            sleep 8
+
+            echo "Checking running processes:"
+            ps -ef | grep java
